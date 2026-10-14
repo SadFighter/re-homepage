@@ -41,7 +41,7 @@ a little hint so you know to re-enable it.
 **When it's off, nothing changes.** The regular `background` block still runs
 exactly as documented above. The mirror is additive.
 
-###FAQ
+### FAQ
 
 - **The mirror asks permission every time I reload.** That's not a bug — browsers
   refuse to auto-start a screen capture without a user click, for obvious reasons.
