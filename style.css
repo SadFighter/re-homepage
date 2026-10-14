@@ -46,7 +46,6 @@
 
 /* ============================================================
    Theme: Catppuccin Mocha
-   https://catppuccin.com/palette
    ============================================================ */
 [data-theme="catppuccin"] {
   --bg:         #1e1e2e;
@@ -55,14 +54,13 @@
   --card:       rgba(255,255,255,.04);
   --card-hover: #313244;
   --border:     #313244;
-  --accent:     #cba6f7;   /* mauve */
+  --accent:     #cba6f7;
   --tooltip:    #181825;
   --tooltip-fg: #cdd6f4;
 }
 
 /* ============================================================
    Theme: Nord
-   https://www.nordtheme.com/
    ============================================================ */
 [data-theme="nord"] {
   --bg:         #2e3440;
@@ -71,14 +69,13 @@
   --card:       rgba(255,255,255,.04);
   --card-hover: #3b4252;
   --border:     #3b4252;
-  --accent:     #88c0d0;   /* nord8 frost */
+  --accent:     #88c0d0;
   --tooltip:    #3b4252;
   --tooltip-fg: #eceff4;
 }
 
 /* ============================================================
    Theme: Tokyo Night
-   https://github.com/enkia/tokyo-night-vscode-theme
    ============================================================ */
 [data-theme="tokyonight"] {
   --bg:         #1a1b26;
@@ -105,6 +102,7 @@ body {
   background: var(--bg);
   color: var(--fg);
   transition: background .2s, color .2s;
+  isolation: isolate;
 }
 
 #app {
@@ -135,7 +133,6 @@ body[data-alignment="right"] .group-links {
   text-align: right;
 }
 body[data-alignment="right"] .group h2 { text-align: right; }
-
 
 /* ============================================================
    Groups
@@ -213,7 +210,6 @@ body[data-alignment="right"] .group h2 { text-align: right; }
   white-space: nowrap;
 }
 
-/* hover description tooltip */
 .bookmark .desc {
   position: absolute;
   bottom: calc(100% + 10px);
@@ -340,7 +336,7 @@ body[data-alignment="right"] .group h2 { text-align: right; }
 }
 
 /* ============================================================
-   Layout: vertical — groups become columns, tiles stack inside
+   Layout: vertical
    ============================================================ */
 body[data-layout="vertical"] #app {
   display: flex;
@@ -357,7 +353,7 @@ body[data-layout="vertical"][data-alignment="left"] #app {
 body[data-layout="vertical"] .group {
   margin-bottom: 0;
 }
-  
+
 body[data-layout="vertical"] .group-links {
   flex-direction: column;
   align-items: stretch;
@@ -372,13 +368,13 @@ body[data-layout="vertical"][data-alignment="right"] #app {
 }
 
 /* ============================================================
-   Layout: stacked — groups stack, tiles stack inside
+   Layout: stacked
    ============================================================ */
 body[data-layout="stacked"] #app {
   display: flex;
   flex-direction: column;
   gap: 32px;
-  max-width: 480px;   /* narrower feels better single-column */
+  max-width: 480px;
 }
 
 body[data-layout="stacked"] .group {
@@ -407,7 +403,6 @@ body[data-layout="stacked"] .bookmark {
   min-width: 0;
 }
 
-/* alignment variants */
 body[data-layout="stacked"][data-alignment="centered"] #app {
   margin-left: auto;
   margin-right: auto;
@@ -469,7 +464,6 @@ body[data-layout="stacked"][data-alignment="right"] #app {
 
 .search input::placeholder { color: var(--muted); opacity: .8; }
 
-/* ---- provider dropdown ---- */
 .provider-wrap {
   position: relative;
   flex: none;
@@ -502,7 +496,6 @@ body[data-layout="stacked"][data-alignment="right"] #app {
 .provider:hover { background: var(--card-hover); border-color: var(--accent); }
 .provider:focus { border-color: var(--accent); }
 
-/* options inherit OS styling; force readable colors where supported */
 .provider option {
   background: var(--bg);
   color: var(--fg);
@@ -518,8 +511,6 @@ body[data-layout="stacked"][data-alignment="right"] #app {
 /* ============================================================
    Background: image + video
    ============================================================ */
-body { isolation: isolate; }
-
 body.has-bg::before {
   content: "";
   position: fixed;
@@ -532,7 +523,7 @@ body.has-bg::before {
   background-repeat:   no-repeat;
 
   filter: blur(var(--bg-blur, 0px));
-  transform: scale(1.06);   /* hides blur bleed at the edges */
+  transform: scale(1.06);
 
   pointer-events: none;
 }
@@ -561,4 +552,233 @@ body.has-bg::after {
 
   background: rgba(0, 0, 0, var(--bg-dim, 0));
   pointer-events: none;
+}
+
+/* ============================================================
+   re: fork features — launcher, panel, mirror
+   ============================================================ */
+
+/* ---- launcher (bottom-left) ---- */
+.re-root {
+  position: fixed;
+  left: 20px;
+  bottom: 20px;
+  z-index: 60;
+}
+
+.re-launcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--fg);
+
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: background .15s, border-color .15s, transform .1s;
+}
+
+.re-launcher:hover {
+  background: var(--card-hover);
+  border-color: var(--accent);
+}
+
+.re-launcher:active { transform: scale(.97); }
+
+.re-launcher.is-open {
+  border-color: var(--accent);
+  background: var(--card-hover);
+}
+
+.re-launcher-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+.re-launcher-label {
+  letter-spacing: .04em;
+}
+
+/* ---- panel (opens up + right from launcher) ---- */
+.re-panel {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 10px);
+
+  min-width: 280px;
+  max-width: 340px;
+
+  padding: 14px;
+
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--tooltip);
+  color: var(--tooltip-fg);
+
+  box-shadow: 0 12px 40px rgba(0,0,0,.45);
+  backdrop-filter: blur(14px);
+
+  animation: re-pop .14s ease-out;
+}
+
+@keyframes re-pop {
+  from { opacity: 0; transform: translateY(6px) scale(.98); }
+  to   { opacity: 1; transform: translateY(0)  scale(1);    }
+}
+
+.re-panel-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 0 4px 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+
+.re-panel-title {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  color: var(--accent);
+}
+
+.re-panel-sub {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .1em;
+}
+
+.re-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ---- rows ---- */
+.re-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 10px;
+  transition: background .15s;
+}
+
+.re-row:hover { background: rgba(127,127,127,.08); }
+
+.re-row-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.re-row-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.re-row-sub {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* ---- switch ---- */
+.re-switch {
+  position: relative;
+  flex: none;
+  width: 40px;
+  height: 22px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(127,127,127,.15);
+  cursor: pointer;
+  padding: 0;
+  outline: none;
+  transition: background .18s, border-color .18s;
+}
+
+.re-switch:hover { border-color: var(--accent); }
+.re-switch:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+
+.re-switch-knob {
+  position: absolute;
+  top: 50%;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--fg);
+  transform: translateY(-50%);
+  transition: left .18s, background .18s;
+}
+
+.re-switch.on {
+  background: color-mix(in srgb, var(--accent) 60%, transparent);
+  border-color: var(--accent);
+}
+
+.re-switch.on .re-switch-knob {
+  left: calc(100% - 18px);
+  background: #fff;
+}
+
+.re-hint {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 4px 10px 2px;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+/* ---- live mirror layer ---- */
+#mirror-video {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+
+  width: 100vw;
+  height: 100vh;
+
+  object-fit: cover;
+  object-position: center;
+
+  filter: blur(var(--mirror-blur, 28px));
+  transform: scale(var(--mirror-scale, 1.08));
+
+  pointer-events: none;
+
+  /* hide when not active — [hidden] handles display, but we also fade */
+  opacity: 0;
+  transition: opacity .25s;
+}
+
+body.has-mirror #mirror-video {
+  opacity: 1;
+}
+
+body.has-mirror::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: rgba(0, 0, 0, var(--mirror-dim, 0.55));
+  pointer-events: none;
+}
+
+/* When mirror is on, its dim overlay replaces the wallpaper dim */
+body.has-mirror.has-bg::after {
+  background: rgba(0, 0, 0, var(--mirror-dim, 0.55));
 }
