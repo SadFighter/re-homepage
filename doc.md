@@ -40,3 +40,16 @@ a little hint so you know to re-enable it.
 
 **When it's off, nothing changes.** The regular `background` block still runs
 exactly as documented above. The mirror is additive.
+
+#FAQ
+
+- **The mirror asks permission every time I reload.** That's not a bug — browsers
+  refuse to auto-start a screen capture without a user click, for obvious reasons.
+  The re: panel remembers your preference and shows a hint, but you have to
+  re-enable it per session.
+- **The mirror shows a "sharing your screen" banner in the browser.** Also not a
+  bug. Every browser that supports `getDisplayMedia` shows a persistent indicator
+  so you can't secretly capture someone. There's no way around it from a webpage.
+- **The mirror doesn't work on `file://`.** Some browsers block `getDisplayMedia`
+  on local files. Serve the folder via a tiny local server (`python -m http.server`)
+  if you want to use it.
