@@ -41,5 +41,15 @@
       "Google": "https://www.google.com/search?q=",
       "Brave":  "https://search.brave.com/search?q="
     }
+  },
+
+  "re": {
+    "menu": true,
+    "mirror": {
+      "enabled": false,
+      "blur": 28,
+      "dim": 0.55,
+      "scale": 1.08
+    }
   }
 }
