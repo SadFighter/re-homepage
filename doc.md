@@ -43,7 +43,7 @@ exactly as documented above. The mirror is additive.
 
 ### FAQ
 
-- **The mirror asks permission every time I reload.** That's not a bug — browsers
+- **The mirror asks permission every time I reload.** That's not a bug, browsers
   refuse to auto-start a screen capture without a user click, for obvious reasons.
   The re: panel remembers your preference and shows a hint, but you have to
   re-enable it per session.
