@@ -1,6 +1,8 @@
 
 # re:homepage
-
+![Version](https://img.shields.io/github/v/release/SadFighter/re-homepage?style=flat-square)
+![Status](https://img.shields.io/badge/re%3A-vibe--coded-cba6f7?style=flat-square&logo=discord)
+![Contributors](https://img.shields.io/github/contributors/SadFighter/re-homepage?style=flat-square)
 
 ## **Disclaimer:**
 
