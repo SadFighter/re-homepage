@@ -27,7 +27,7 @@ Right now it has one entry: **Wallpaper mirror**.
 | `mirror.dim` | Black overlay opacity on top of the mirror, `0` to `1`. | `0.55` |
 | `mirror.scale` | Slight overscan to hide blur bleed at the edges. | `1.08` |
 
-**How the mirror works:** it uses `getDisplayMedia()` — the same API as "Share
+**How the mirror works:** it uses `getDisplayMedia()`, the same API as "Share
 your screen" in video calls. When you flip the toggle on, your browser will ask
 which screen/window to share. You pick one (or the whole screen), and the page
 draws it behind everything, blurred and dimmed. Turn the toggle off and the
