@@ -69,7 +69,6 @@ function applyBackground(bg) {
   }
 
   if (!bg || (!bg.image && !bg.video)) {
-    // Background is empty — still let mirror mode own the layer if active
     syncMirrorLayer();
     return;
   }
@@ -126,31 +125,36 @@ function clearCustomTheme() {
 }
 
 /* ============================================================
-   re: fork features
+   re: fork features & Custom Fonts
    ============================================================ */
 const RE_STORE_MIRROR  = "homepage.re.mirror.enabled";
 const RE_STORE_MENU    = "homepage.re.menu.open";
+const RE_STORE_FONTS   = "homepage.re.fonts";
 
 const RE_DEFAULTS = {
   menu: true,
-  mirror: {
-    enabled: false,
-    blur: 28,
-    dim: 0.55,
-    scale: 1.08,
-  },
+  mirror: { enabled: false, blur: 28, dim: 0.55, scale: 1.08 },
 };
 
 let reConfig   = JSON.parse(JSON.stringify(RE_DEFAULTS));
 let mirrorOn   = false;
 let mirrorStream = null;
 
+const FONT_SLOTS = [
+  { id: "bookmarkTitle", label: "Bookmark Titles", css: ".bookmark .name" },
+  { id: "bookmarkDesc", label: "Tooltip / Desc", css: ".bookmark .desc" },
+  { id: "groupTitle", label: "Group Headings", css: ".group h2" },
+  { id: "searchInput", label: "Search Input", css: ".search input" },
+  { id: "searchProvider", label: "Search Dropdown", css: ".provider" },
+  { id: "reMenu", label: "re: Menu Panel", css: ".re-panel, .re-launcher, .re-row-title, .re-row-sub" },
+  { id: "systemUI", label: "Load Button / Empty", css: ".load-btn, .empty" }
+];
+
 function readReConfig(cfg) {
   const src = (cfg && typeof cfg === "object") ? cfg : {};
   const merged = JSON.parse(JSON.stringify(RE_DEFAULTS));
 
   if (typeof src.menu === "boolean") merged.menu = src.menu;
-
   if (src.mirror && typeof src.mirror === "object") {
     const m = src.mirror;
     if (typeof m.enabled === "boolean") merged.mirror.enabled = m.enabled;
@@ -158,7 +162,6 @@ function readReConfig(cfg) {
     if (m.dim   != null) merged.mirror.dim   = Number(m.dim)   || 0;
     if (m.scale != null) merged.mirror.scale = Number(m.scale) || 1;
   }
-
   reConfig = merged;
 }
 
@@ -173,7 +176,6 @@ function setupRe() {
   const launcher = document.getElementById("reLauncher");
   const panel    = document.getElementById("rePanel");
 
-  // restore last open state
   if (localStorage.getItem(RE_STORE_MENU) === "1") {
     setPanelOpen(true);
   } else {
@@ -186,7 +188,6 @@ function setupRe() {
     localStorage.setItem(RE_STORE_MENU, nowOpen ? "1" : "0");
   });
 
-  // close on Escape
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && !panel.hidden) {
       setPanelOpen(false);
@@ -194,7 +195,6 @@ function setupRe() {
     }
   });
 
-  // close when clicking outside
   document.addEventListener("click", function (e) {
     if (panel.hidden) return;
     if (root.contains(e.target)) return;
@@ -202,6 +202,7 @@ function setupRe() {
     localStorage.setItem(RE_STORE_MENU, "0");
   });
 
+  loadCustomFonts();
   renderRePanel();
   syncMirrorLayer();
 }
@@ -224,86 +225,152 @@ function renderRePanel() {
 
   const meta = document.createElement("div");
   meta.className = "re-row-meta";
-
-  const title = document.createElement("div");
-  title.className = "re-row-title";
-  title.textContent = "Wallpaper mirror";
-
-  const sub = document.createElement("div");
-  sub.className = "re-row-sub";
-  sub.textContent = mirrorOn
-    ? "Live view of your desktop"
-    : "Blurred live capture of what's behind";
-
-  meta.append(title, sub);
+  meta.innerHTML = `
+    <div class="re-row-title">Wallpaper mirror</div>
+    <div class="re-row-sub">${mirrorOn ? "Live view of your desktop" : "Blurred live capture of what's behind"}</div>
+  `;
 
   const toggle = document.createElement("button");
   toggle.type = "button";
-  toggle.className = "re-switch";
+  toggle.className = "re-switch" + (mirrorOn ? " on" : "");
   toggle.setAttribute("role", "switch");
   toggle.setAttribute("aria-checked", mirrorOn ? "true" : "false");
-  toggle.setAttribute("aria-label", "Toggle wallpaper mirror");
-  if (mirrorOn) toggle.classList.add("on");
-
-  const knob = document.createElement("span");
-  knob.className = "re-switch-knob";
-  toggle.appendChild(knob);
+  toggle.innerHTML = '<span class="re-switch-knob"></span>';
 
   toggle.addEventListener("click", function (e) {
     e.stopPropagation();
-    if (mirrorOn) {
-      stopMirror();
-    } else {
-      startMirror();
-    }
+    if (mirrorOn) stopMirror(); else startMirror();
   });
 
   row.append(meta, toggle);
   body.appendChild(row);
 
-  // If mirror is remembered as on but stream isn't running, hint the user
-  if (!mirrorOn && localStorage.getItem(RE_STORE_MIRROR) === "1") {
-    const hint = document.createElement("div");
-    hint.className = "re-hint";
-    hint.textContent = "Click the toggle to re-enable your desktop mirror.";
-    body.appendChild(hint);
+  // ---- Custom Fonts Section ----
+  const fontHeader = document.createElement("div");
+  fontHeader.className = "re-section-title";
+  fontHeader.textContent = "Customize Fonts";
+  body.appendChild(fontHeader);
+
+  const storedFonts = JSON.parse(localStorage.getItem(RE_STORE_FONTS) || "{}");
+
+  FONT_SLOTS.forEach(slot => {
+    const fontRow = document.createElement("div");
+    fontRow.className = "re-font-row";
+    
+    const label = document.createElement("span");
+    label.className = "re-font-label";
+    label.textContent = slot.label;
+    
+    const btnWrap = document.createElement("div");
+    btnWrap.className = "re-font-actions";
+
+    const fileBtn = document.createElement("button");
+    fileBtn.className = "re-btn-small";
+    fileBtn.textContent = storedFonts[slot.id] ? "Replace" : "Upload";
+    fileBtn.onclick = () => pickFontFile(slot);
+
+    if (storedFonts[slot.id]) {
+      const resetBtn = document.createElement("button");
+      resetBtn.className = "re-btn-small danger";
+      resetBtn.textContent = "X";
+      resetBtn.title = "Reset to default";
+      resetBtn.onclick = () => resetFont(slot);
+      btnWrap.appendChild(fileBtn);
+      btnWrap.appendChild(resetBtn);
+    } else {
+      btnWrap.appendChild(fileBtn);
+    }
+
+    fontRow.append(label, btnWrap);
+    body.appendChild(fontRow);
+  });
+}
+
+/* ---- Font Logic ---- */
+function pickFontFile(slot) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".woff,.woff2,.ttf,.otf";
+  input.onchange = function () {
+    if (!input.files[0]) return;
+    const file = input.files[0];
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+      const dataUrl = e.target.result;
+      await applyFontFace(slot.id, dataUrl, file.name);
+      
+      const stored = JSON.parse(localStorage.getItem(RE_STORE_FONTS) || "{}");
+      stored[slot.id] = { dataUrl, name: file.name };
+      try {
+        localStorage.setItem(RE_STORE_FONTS, JSON.stringify(stored));
+      } catch (err) {
+        alert("Font file is too large to save in localStorage! It will work for this session but disappear on reload.");
+      }
+      renderRePanel();
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+async function applyFontFace(slotId, dataUrl, fontName) {
+  const familyName = "re_custom_" + slotId;
+  const slot = FONT_SLOTS.find(s => s.id === slotId);
+  if (!slot) return;
+
+  try {
+    const font = new FontFace(familyName, `url(${dataUrl})`);
+    await font.load();
+    document.fonts.add(font);
+    
+    // Create or update a style tag for this slot
+    let styleTag = document.getElementById("style_" + slotId);
+    if (!styleTag) {
+      styleTag = document.createElement("style");
+      styleTag.id = "style_" + slotId;
+      document.head.appendChild(styleTag);
+    }
+    styleTag.textContent = `${slot.css} { font-family: '${familyName}', sans-serif !important; }`;
+  } catch (err) {
+    alert("Failed to load font: " + err.message);
   }
 }
 
-/* ---- mirror lifecycle ---- */
-async function startMirror() {
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-    alert("Your browser doesn't support screen capture (getDisplayMedia).");
-    return;
+function resetFont(slot) {
+  const styleTag = document.getElementById("style_" + slot.id);
+  if (styleTag) styleTag.remove();
+
+  const stored = JSON.parse(localStorage.getItem(RE_STORE_FONTS) || "{}");
+  if (stored[slot.id]) {
+    delete stored[slot.id];
+    localStorage.setItem(RE_STORE_FONTS, JSON.stringify(stored));
   }
+  renderRePanel();
+}
 
+function loadCustomFonts() {
+  const stored = JSON.parse(localStorage.getItem(RE_STORE_FONTS) || "{}");
+  for (const [slotId, fontData] of Object.entries(stored)) {
+    applyFontFace(slotId, fontData.dataUrl, fontData.name);
+  }
+}
+
+/* ---- Mirror Logic ---- */
+async function startMirror() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) return;
   try {
-    const stream = await navigator.mediaDevices.getDisplayMedia({
-      video: { frameRate: 30 },
-      audio: false,
-    });
-
+    const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 30 }, audio: false });
     mirrorStream = stream;
     mirrorOn = true;
     localStorage.setItem(RE_STORE_MIRROR, "1");
-
     const v = document.getElementById("mirror-video");
     v.srcObject = stream;
     v.hidden = false;
-
-    // autoplay may be deferred; muted so it should be fine
-    const p = v.play();
-    if (p && p.catch) p.catch(function () {});
-
-    // If user stops sharing via the browser's own UI
-    stream.getVideoTracks()[0].addEventListener("ended", function () {
-      stopMirror();
-    });
-
+    v.play().catch(() => {});
+    stream.getVideoTracks()[0].addEventListener("ended", stopMirror);
     renderRePanel();
     syncMirrorLayer();
   } catch (e) {
-    // User cancelled or denied — leave everything as-is
     mirrorOn = false;
     localStorage.setItem(RE_STORE_MIRROR, "0");
     renderRePanel();
@@ -313,68 +380,47 @@ async function startMirror() {
 
 function stopMirror() {
   if (mirrorStream) {
-    mirrorStream.getTracks().forEach(function (t) { t.stop(); });
+    mirrorStream.getTracks().forEach(t => t.stop());
     mirrorStream = null;
   }
-
   const v = document.getElementById("mirror-video");
   v.pause();
   v.srcObject = null;
   v.hidden = true;
-
   mirrorOn = false;
   localStorage.setItem(RE_STORE_MIRROR, "0");
-
   renderRePanel();
   syncMirrorLayer();
 }
 
-/* Push mirror's blur/dim/scale into the CSS layer and toggle visibility */
 function syncMirrorLayer() {
   const m = reConfig.mirror || RE_DEFAULTS.mirror;
   document.body.style.setProperty("--mirror-blur",  (m.blur  != null ? m.blur  : 28) + "px");
   document.body.style.setProperty("--mirror-dim",   (m.dim   != null ? m.dim   : 0.55));
   document.body.style.setProperty("--mirror-scale", (m.scale != null ? m.scale : 1.08));
-
   document.body.classList.toggle("has-mirror", mirrorOn);
 }
 
 /* ============================================================
-   Helpers
+   Helpers, Render, Search, Boot
    ============================================================ */
 function initial(n) { return (n[0] || "?").toUpperCase(); }
-function safeHost(url) {
-  try { return new URL(url).hostname; } catch (e) { return ""; }
-}
+function safeHost(url) { try { return new URL(url).hostname; } catch (e) { return ""; } }
 
-/* ============================================================
-   Render
-   ============================================================ */
 function render(bookmarks = {}) {
   const app = document.getElementById("app");
   app.innerHTML = "";
-
   const groups = Object.entries(bookmarks);
   if (!groups.length) return showEmptyState();
 
-  groups.forEach(function (entry) {
-    const groupName = entry[0];
-    const items = entry[1];
-
+  groups.forEach(entry => {
+    const [groupName, items] = entry;
     const section = document.createElement("section");
     section.className = "group";
-
-    const h2 = document.createElement("h2");
-    h2.textContent = groupName;
-    section.appendChild(h2);
-
+    section.innerHTML = `<h2>${groupName}</h2>`;
     const row = document.createElement("div");
     row.className = "group-links";
-
-    Object.entries(items).forEach(function (pair) {
-      row.appendChild(makeBookmark(pair[0], pair[1]));
-    });
-
+    Object.entries(items).forEach(pair => row.appendChild(makeBookmark(pair[0], pair[1])));
     section.appendChild(row);
     app.appendChild(section);
   });
@@ -386,35 +432,25 @@ function makeBookmark(name, data) {
   a.href = data.link || "#";
   a.target = "_blank";
   a.rel = "noopener";
-
   const icon = document.createElement("div");
   icon.className = "icon";
 
-  function fallback() {
-    icon.innerHTML = "";
-    icon.textContent = initial(name);
-  }
-
+  function fallback() { icon.innerHTML = ""; icon.textContent = initial(name); }
   if (data.favicons && data.link) {
     const img = document.createElement("img");
-    img.alt = "";
     img.src = "https://www.google.com/s2/favicons?sz=64&domain=" + safeHost(data.link);
     img.onerror = fallback;
     icon.appendChild(img);
   } else if (data.icon) {
     const img = document.createElement("img");
-    img.alt = "";
     img.src = data.icon;
     img.onerror = fallback;
     icon.appendChild(img);
-  } else {
-    icon.textContent = initial(name);
-  }
+  } else { icon.textContent = initial(name); }
 
   const label = document.createElement("span");
   label.className = "name";
   label.textContent = name;
-
   a.append(icon, label);
 
   if (data.description) {
@@ -423,43 +459,25 @@ function makeBookmark(name, data) {
     desc.textContent = data.description;
     a.appendChild(desc);
   }
-
   return a;
 }
 
-/* ============================================================
-   Empty state
-   ============================================================ */
 function showEmptyState() {
   const app = document.getElementById("app");
-  app.innerHTML =
-    '<div class="empty">' +
-      '<p>No bookmarks loaded yet.</p>' +
-      '<button id="loadBtn">Load bookmarks.json</button>' +
-      '<p class="hint">or drop the file anywhere on this page.</p>' +
-    '</div>';
+  app.innerHTML = `<div class="empty"><p>No bookmarks loaded yet.</p><button id="loadBtn">Load bookmarks.json</button><p class="hint">or drop the file anywhere on this page.</p></div>`;
   document.getElementById("loadBtn").onclick = pickFile;
 }
 
-/* ============================================================
-   Loading
-   ============================================================ */
 function loadConfig() {
-  return new Promise(function (resolve) {
+  return new Promise(resolve => {
     try {
       const cached = localStorage.getItem(STORE);
       if (cached) return resolve(JSON.parse(cached));
     } catch (e) {}
-
-    fetch("bookmarks.json", { cache: "no-store" })
-      .then(function (res) {
-        if (!res.ok) return resolve(null);
-        return res.json().then(function (data) {
-          localStorage.setItem(STORE, JSON.stringify(data));
-          resolve(data);
-        });
-      })
-      .catch(function () { resolve(null); });
+    fetch("bookmarks.json", { cache: "no-store" }).then(res => {
+      if (!res.ok) return resolve(null);
+      return res.json().then(data => { localStorage.setItem(STORE, JSON.stringify(data)); resolve(data); });
+    }).catch(() => resolve(null));
   });
 }
 
@@ -478,144 +496,74 @@ function boot(config) {
   render(config.bookmarks);
 }
 
-/* ============================================================
-   Import via file picker
-   ============================================================ */
 function pickFile() {
   const input = document.createElement("input");
   input.type = "file";
   input.accept = ".json,application/json";
-  input.onchange = function () {
-    if (input.files[0]) readFile(input.files[0]);
-  };
+  input.onchange = () => { if (input.files[0]) readFile(input.files[0]); };
   input.click();
 }
 
 function readFile(file) {
   const reader = new FileReader();
-  reader.onload = function () {
+  reader.onload = () => {
     try {
       const data = JSON.parse(reader.result);
       localStorage.setItem(STORE, JSON.stringify(data));
       boot(data);
-    } catch (e) {
-      alert("Invalid JSON:\n" + e.message);
-    }
+    } catch (e) { alert("Invalid JSON:\n" + e.message); }
   };
   reader.readAsText(file);
 }
 
-/* ============================================================
-   Drag & drop
-   ============================================================ */
 const dropzone = document.getElementById("dropzone");
 let dragDepth = 0;
-
-window.addEventListener("dragenter", function (e) {
-  e.preventDefault();
-  dragDepth++;
-  if (dragDepth === 1) dropzone.classList.add("active");
+window.addEventListener("dragenter", e => { e.preventDefault(); if(++dragDepth === 1) dropzone.classList.add("active"); });
+window.addEventListener("dragover", e => e.preventDefault());
+window.addEventListener("dragleave", e => { e.preventDefault(); if(--dragDepth === 0) dropzone.classList.remove("active"); });
+window.addEventListener("drop", e => {
+  e.preventDefault(); dragDepth = 0; dropzone.classList.remove("active");
+  if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]);
 });
-window.addEventListener("dragover", function (e) { e.preventDefault(); });
-window.addEventListener("dragleave", function (e) {
-  e.preventDefault();
-  dragDepth--;
-  if (dragDepth === 0) dropzone.classList.remove("active");
-});
-window.addEventListener("drop", function (e) {
-  e.preventDefault();
-  dragDepth = 0;
-  dropzone.classList.remove("active");
-  const file = e.dataTransfer.files[0];
-  if (file) readFile(file);
-});
-
-/* ============================================================
-   Top-left load button
-   ============================================================ */
 document.getElementById("loadBtnTop").addEventListener("click", pickFile);
 
-/* ============================================================
-   Search bar
-   ============================================================ */
-const DEFAULT_SEARCH = {
-  enabled: true,
-  default: "Google",
-  providers: {
-    "Google":     "https://www.google.com/search?q=",
-    "Brave":      "https://search.brave.com/search?q=",
-    "DuckDuckGo": "https://duckduckgo.com/?q=",
-  },
-};
-
+const DEFAULT_SEARCH = { enabled: true, default: "Google", providers: { "Google": "https://www.google.com/search?q=", "Brave": "https://search.brave.com/search?q=", "DuckDuckGo": "https://duckduckgo.com/?q=" } };
 const PROVIDER_STORE = "homepage.search.provider";
 
 function setupSearch(cfg) {
   const searchCfg = Object.assign({}, DEFAULT_SEARCH, cfg || {});
   const form = document.getElementById("searchForm");
-
-  if (searchCfg.enabled === false) {
-    form.hidden = true;
-    return;
-  }
-
+  if (searchCfg.enabled === false) { form.hidden = true; return; }
   const providers = searchCfg.providers || {};
   const names = Object.keys(providers);
   if (!names.length) { form.hidden = true; return; }
-
   const select = document.getElementById("searchProvider");
   const input  = document.getElementById("searchInput");
 
-  select.innerHTML = "";
-  names.forEach(function (name) {
-    const opt = document.createElement("option");
-    opt.value = name;
-    opt.textContent = name;
-    select.appendChild(opt);
-  });
-
+  select.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join("");
   const stored = localStorage.getItem(PROVIDER_STORE);
-  if (stored && providers[stored])        select.value = stored;
-  else if (providers[searchCfg.default])  select.value = searchCfg.default;
-  else                                    select.value = names[0];
+  if (stored && providers[stored]) select.value = stored;
+  else if (providers[searchCfg.default]) select.value = searchCfg.default;
+  else select.value = names[0];
 
-  select.addEventListener("change", function () {
-    localStorage.setItem(PROVIDER_STORE, select.value);
-  });
-
-  form.addEventListener("submit", function (e) {
+  select.addEventListener("change", () => localStorage.setItem(PROVIDER_STORE, select.value));
+  form.addEventListener("submit", e => {
     e.preventDefault();
     const q = input.value.trim();
     if (!q) return;
-
-    const looksLikeUrl = /^https?:\/\//i.test(q) ||
-                         /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(q);
-
-    if (looksLikeUrl) {
-      window.location.href = /^https?:/i.test(q) ? q : "https://" + q;
-      return;
-    }
-
+    const looksLikeUrl = /^https?:\/\//i.test(q) || /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(q);
+    if (looksLikeUrl) { window.location.href = /^https?:/i.test(q) ? q : "https://" + q; return; }
     const engine = providers[select.value];
-    if (!engine) return;
-    window.top.location.href = engine + encodeURIComponent(q);
+    if (engine) window.top.location.href = engine + encodeURIComponent(q);
   });
-
   form.hidden = false;
 }
 
-document.addEventListener("keydown", function (e) {
+document.addEventListener("keydown", e => {
   const input = document.getElementById("searchInput");
   const form  = document.getElementById("searchForm");
   if (!input || !form || form.hidden) return;
-  if (e.key === "/" && document.activeElement !== input) {
-    e.preventDefault();
-    input.focus();
-    input.select();
-  }
+  if (e.key === "/" && document.activeElement !== input) { e.preventDefault(); input.focus(); input.select(); }
 });
 
-/* ============================================================
-   Go
-   ============================================================ */
 loadConfig().then(boot);
