@@ -323,7 +323,6 @@ async function applyFontFace(slotId, dataUrl, fontName) {
     await font.load();
     document.fonts.add(font);
     
-    // Create or update a style tag for this slot
     let styleTag = document.getElementById("style_" + slotId);
     if (!styleTag) {
       styleTag = document.createElement("style");
