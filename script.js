@@ -4,7 +4,7 @@
 const STORE = "homepage.config.v1";
 
 /* ============================================================
-   Settings
+   Settings & User Config
    ============================================================ */
 const DEFAULT_SETTINGS = {
   theme: "dark",
@@ -13,6 +13,7 @@ const DEFAULT_SETTINGS = {
 };
 
 let appliedCustomVars = [];
+let currentUser = null;
 
 function applySettings(settings = {}) {
   const s = Object.assign({}, DEFAULT_SETTINGS, settings);
@@ -39,6 +40,71 @@ function applySettings(settings = {}) {
   }
 
   applyBackground(s.background);
+}
+
+/* ============================================================
+   User & Greeting Logic
+   ============================================================ */
+const GREETINGS = {
+  morning: ["Good morning", "Rise and shine", "Morning", "Wakey wakey", "Top of the morning", "Hello early bird", "Fresh start", "Coffee time"],
+  afternoon: ["Good afternoon", "Hey there", "Welcome back", "Good day", "Afternoon", "Hope you're having a good day"],
+  evening: ["Good evening", "Evening", "Burning the midnight oil early?", "Winding down", "Good to see you", "Welcome home"],
+  night: ["Good night", "Late night", "Still awake?", "Night owl", "The moon is out", "Sleep is for the weak"]
+};
+
+function setupUser(user) {
+  currentUser = user;
+  const pill = document.getElementById("userPill");
+  const greetingEl = document.getElementById("greeting");
+  
+  if (!user || !user.name) {
+    pill.hidden = true;
+    greetingEl.hidden = true;
+    return;
+  }
+
+  pill.hidden = false;
+  greetingEl.hidden = false;
+
+  // Set greeting text
+  const now = new Date();
+  const hour = now.getHours();
+  let timeOfDay = "morning";
+  if (hour >= 12 && hour < 18) timeOfDay = "afternoon";
+  else if (hour >= 18 && hour < 22) timeOfDay = "evening";
+  else if (hour >= 22 || hour < 5) timeOfDay = "night";
+
+  const pool = GREETINGS[timeOfDay];
+  let text = pool[Math.floor(Math.random() * pool.length)];
+  
+  // 50% chance to add name
+  if (Math.random() > 0.5) {
+    text += `, ${user.name}`;
+  }
+  greetingEl.textContent = text + ".";
+
+  // Timezone Formatter
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: user.timezone || "UTC",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  });
+
+  function updateTime() {
+    try {
+      const timeStr = formatter.format(new Date());
+      document.getElementById("userNameDisplay").textContent = user.name;
+      document.getElementById("userTimeDisplay").textContent = timeStr;
+      document.getElementById("userTzDisplay").textContent = user.timezone || "UTC";
+    } catch(e) {
+      document.getElementById("userNameDisplay").textContent = user.name;
+      document.getElementById("userTimeDisplay").textContent = "--:--";
+      document.getElementById("userTzDisplay").textContent = "Invalid TZ";
+    }
+  }
+  updateTime();
+  setInterval(updateTime, 1000);
 }
 
 /* ============================================================
@@ -100,10 +166,8 @@ function injectBgVideo(src) {
   v.setAttribute("muted", "");
   v.setAttribute("playsinline", "");
   v.setAttribute("preload", "auto");
-
   document.body.appendChild(v);
   currentBgVideo = v;
-
   const p = v.play();
   if (p && p.catch) p.catch(function () {});
 }
@@ -118,9 +182,7 @@ function applyCustomTheme(theme) {
 }
 
 function clearCustomTheme() {
-  appliedCustomVars.forEach(function (v) {
-    document.body.style.removeProperty(v);
-  });
+  appliedCustomVars.forEach(function (v) { document.body.style.removeProperty(v); });
   appliedCustomVars = [];
 }
 
@@ -147,13 +209,12 @@ const FONT_SLOTS = [
   { id: "searchInput", label: "Search Input", css: ".search input" },
   { id: "searchProvider", label: "Search Dropdown", css: ".provider" },
   { id: "reMenu", label: "re: Menu Panel", css: ".re-panel, .re-launcher, .re-row-title, .re-row-sub" },
-  { id: "systemUI", label: "Load Button / Empty", css: ".load-btn, .empty" }
+  { id: "systemUI", label: "Load Button / Empty", css: ".load-btn, .empty, .user-pill, .greeting" }
 ];
 
 function readReConfig(cfg) {
   const src = (cfg && typeof cfg === "object") ? cfg : {};
   const merged = JSON.parse(JSON.stringify(RE_DEFAULTS));
-
   if (typeof src.menu === "boolean") merged.menu = src.menu;
   if (src.mirror && typeof src.mirror === "object") {
     const m = src.mirror;
@@ -167,20 +228,16 @@ function readReConfig(cfg) {
 
 function setupRe() {
   const root = document.getElementById("reRoot");
-  if (!reConfig.menu) {
-    root.hidden = true;
-    return;
-  }
+  if (!reConfig.menu) { root.hidden = true; return; }
   root.hidden = false;
 
   const launcher = document.getElementById("reLauncher");
   const panel    = document.getElementById("rePanel");
+  const mainView = document.getElementById("reMainView");
+  const fontsView = document.getElementById("reFontsView");
 
-  if (localStorage.getItem(RE_STORE_MENU) === "1") {
-    setPanelOpen(true);
-  } else {
-    setPanelOpen(false);
-  }
+  if (localStorage.getItem(RE_STORE_MENU) === "1") setPanelOpen(true);
+  else setPanelOpen(false);
 
   launcher.addEventListener("click", function () {
     const nowOpen = panel.hidden;
@@ -202,68 +259,77 @@ function setupRe() {
     localStorage.setItem(RE_STORE_MENU, "0");
   });
 
+  // Fonts submenu logic
+  document.getElementById("reBackBtn").addEventListener("click", () => {
+    fontsView.hidden = true;
+    mainView.hidden = false;
+  });
+
   loadCustomFonts();
   renderRePanel();
   syncMirrorLayer();
 }
 
 function setPanelOpen(open) {
-  const panel    = document.getElementById("rePanel");
+  const panel = document.getElementById("rePanel");
   const launcher = document.getElementById("reLauncher");
   panel.hidden = !open;
   launcher.setAttribute("aria-expanded", open ? "true" : "false");
   launcher.classList.toggle("is-open", open);
+  
+  if (!open) {
+    document.getElementById("reFontsView").hidden = true;
+    document.getElementById("reMainView").hidden = false;
+  }
 }
 
 function renderRePanel() {
-  const body = document.getElementById("rePanelBody");
-  body.innerHTML = "";
+  const mainView = document.getElementById("reMainView");
+  const fontsList = document.getElementById("reFontsList");
+  mainView.innerHTML = "";
+  fontsList.innerHTML = "";
 
   // ---- Wallpaper mirror row ----
   const row = document.createElement("div");
   row.className = "re-row";
-
   const meta = document.createElement("div");
   meta.className = "re-row-meta";
-  meta.innerHTML = `
-    <div class="re-row-title">Wallpaper mirror</div>
-    <div class="re-row-sub">${mirrorOn ? "Live view of your desktop" : "Blurred live capture of what's behind"}</div>
-  `;
-
+  meta.innerHTML = `<div class="re-row-title">Wallpaper mirror</div><div class="re-row-sub">${mirrorOn ? "Live view of your desktop" : "Blurred live capture of what's behind"}</div>`;
+  
   const toggle = document.createElement("button");
   toggle.type = "button";
   toggle.className = "re-switch" + (mirrorOn ? " on" : "");
   toggle.setAttribute("role", "switch");
   toggle.setAttribute("aria-checked", mirrorOn ? "true" : "false");
   toggle.innerHTML = '<span class="re-switch-knob"></span>';
-
-  toggle.addEventListener("click", function (e) {
-    e.stopPropagation();
-    if (mirrorOn) stopMirror(); else startMirror();
-  });
-
+  toggle.addEventListener("click", function (e) { e.stopPropagation(); if (mirrorOn) stopMirror(); else startMirror(); });
   row.append(meta, toggle);
-  body.appendChild(row);
+  mainView.appendChild(row);
 
-  // ---- Custom Fonts Section ----
-  const fontHeader = document.createElement("div");
-  fontHeader.className = "re-section-title";
-  fontHeader.textContent = "Customize Fonts";
-  body.appendChild(fontHeader);
+  // ---- Fonts Menu Button ----
+  const fontMenuRow = document.createElement("div");
+  fontMenuRow.className = "re-row";
+  fontMenuRow.style.cursor = "pointer";
+  fontMenuRow.innerHTML = `<div class="re-row-meta"><div class="re-row-title">Customize Fonts</div><div class="re-row-sub">Open font settings</div></div>
+                           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>`;
+  fontMenuRow.addEventListener("click", (e) => {
+    e.stopPropagation();
+    document.getElementById("reMainView").hidden = true;
+    document.getElementById("reFontsView").hidden = false;
+  });
+  mainView.appendChild(fontMenuRow);
 
+  // ---- Render Fonts List into submenu ----
   const storedFonts = JSON.parse(localStorage.getItem(RE_STORE_FONTS) || "{}");
-
   FONT_SLOTS.forEach(slot => {
     const fontRow = document.createElement("div");
     fontRow.className = "re-font-row";
-    
     const label = document.createElement("span");
     label.className = "re-font-label";
     label.textContent = slot.label;
     
     const btnWrap = document.createElement("div");
     btnWrap.className = "re-font-actions";
-
     const fileBtn = document.createElement("button");
     fileBtn.className = "re-btn-small";
     fileBtn.textContent = storedFonts[slot.id] ? "Replace" : "Upload";
@@ -280,9 +346,8 @@ function renderRePanel() {
     } else {
       btnWrap.appendChild(fileBtn);
     }
-
     fontRow.append(label, btnWrap);
-    body.appendChild(fontRow);
+    fontsList.appendChild(fontRow);
   });
 }
 
@@ -298,14 +363,10 @@ function pickFontFile(slot) {
     reader.onload = async function(e) {
       const dataUrl = e.target.result;
       await applyFontFace(slot.id, dataUrl, file.name);
-      
       const stored = JSON.parse(localStorage.getItem(RE_STORE_FONTS) || "{}");
       stored[slot.id] = { dataUrl, name: file.name };
-      try {
-        localStorage.setItem(RE_STORE_FONTS, JSON.stringify(stored));
-      } catch (err) {
-        alert("Font file is too large to save in localStorage! It will work for this session but disappear on reload.");
-      }
+      try { localStorage.setItem(RE_STORE_FONTS, JSON.stringify(stored)); } 
+      catch (err) { alert("Font file is too large to save in localStorage! It will work for this session but disappear on reload."); }
       renderRePanel();
     };
     reader.readAsDataURL(file);
@@ -317,12 +378,10 @@ async function applyFontFace(slotId, dataUrl, fontName) {
   const familyName = "re_custom_" + slotId;
   const slot = FONT_SLOTS.find(s => s.id === slotId);
   if (!slot) return;
-
   try {
     const font = new FontFace(familyName, `url(${dataUrl})`);
     await font.load();
     document.fonts.add(font);
-    
     let styleTag = document.getElementById("style_" + slotId);
     if (!styleTag) {
       styleTag = document.createElement("style");
@@ -338,7 +397,6 @@ async function applyFontFace(slotId, dataUrl, fontName) {
 function resetFont(slot) {
   const styleTag = document.getElementById("style_" + slot.id);
   if (styleTag) styleTag.remove();
-
   const stored = JSON.parse(localStorage.getItem(RE_STORE_FONTS) || "{}");
   if (stored[slot.id]) {
     delete stored[slot.id];
@@ -363,33 +421,21 @@ async function startMirror() {
     mirrorOn = true;
     localStorage.setItem(RE_STORE_MIRROR, "1");
     const v = document.getElementById("mirror-video");
-    v.srcObject = stream;
-    v.hidden = false;
-    v.play().catch(() => {});
+    v.srcObject = stream; v.hidden = false; v.play().catch(() => {});
     stream.getVideoTracks()[0].addEventListener("ended", stopMirror);
-    renderRePanel();
-    syncMirrorLayer();
+    renderRePanel(); syncMirrorLayer();
   } catch (e) {
-    mirrorOn = false;
-    localStorage.setItem(RE_STORE_MIRROR, "0");
-    renderRePanel();
-    syncMirrorLayer();
+    mirrorOn = false; localStorage.setItem(RE_STORE_MIRROR, "0");
+    renderRePanel(); syncMirrorLayer();
   }
 }
 
 function stopMirror() {
-  if (mirrorStream) {
-    mirrorStream.getTracks().forEach(t => t.stop());
-    mirrorStream = null;
-  }
+  if (mirrorStream) { mirrorStream.getTracks().forEach(t => t.stop()); mirrorStream = null; }
   const v = document.getElementById("mirror-video");
-  v.pause();
-  v.srcObject = null;
-  v.hidden = true;
-  mirrorOn = false;
-  localStorage.setItem(RE_STORE_MIRROR, "0");
-  renderRePanel();
-  syncMirrorLayer();
+  v.pause(); v.srcObject = null; v.hidden = true;
+  mirrorOn = false; localStorage.setItem(RE_STORE_MIRROR, "0");
+  renderRePanel(); syncMirrorLayer();
 }
 
 function syncMirrorLayer() {
@@ -429,34 +475,23 @@ function makeBookmark(name, data) {
   const a = document.createElement("a");
   a.className = "bookmark";
   a.href = data.link || "#";
-  a.target = "_blank";
-  a.rel = "noopener";
-  const icon = document.createElement("div");
-  icon.className = "icon";
+  a.target = "_blank"; a.rel = "noopener";
+  const icon = document.createElement("div"); icon.className = "icon";
 
   function fallback() { icon.innerHTML = ""; icon.textContent = initial(name); }
   if (data.favicons && data.link) {
     const img = document.createElement("img");
     img.src = "https://www.google.com/s2/favicons?sz=64&domain=" + safeHost(data.link);
-    img.onerror = fallback;
-    icon.appendChild(img);
+    img.onerror = fallback; icon.appendChild(img);
   } else if (data.icon) {
     const img = document.createElement("img");
-    img.src = data.icon;
-    img.onerror = fallback;
-    icon.appendChild(img);
+    img.src = data.icon; img.onerror = fallback; icon.appendChild(img);
   } else { icon.textContent = initial(name); }
 
-  const label = document.createElement("span");
-  label.className = "name";
-  label.textContent = name;
+  const label = document.createElement("span"); label.className = "name"; label.textContent = name;
   a.append(icon, label);
-
   if (data.description) {
-    const desc = document.createElement("div");
-    desc.className = "desc";
-    desc.textContent = data.description;
-    a.appendChild(desc);
+    const desc = document.createElement("div"); desc.className = "desc"; desc.textContent = data.description; a.appendChild(desc);
   }
   return a;
 }
@@ -485,20 +520,21 @@ function boot(config) {
     readReConfig(null);
     applySettings();
     setupRe();
+    setupUser(null);
     setupSearch(null);
     return showEmptyState();
   }
   readReConfig(config.re);
   applySettings(config.settings);
   setupRe();
+  setupUser(config.user);
   setupSearch(config.search);
   render(config.bookmarks);
 }
 
 function pickFile() {
   const input = document.createElement("input");
-  input.type = "file";
-  input.accept = ".json,application/json";
+  input.type = "file"; input.accept = ".json,application/json";
   input.onchange = () => { if (input.files[0]) readFile(input.files[0]); };
   input.click();
 }
@@ -538,13 +574,11 @@ function setupSearch(cfg) {
   if (!names.length) { form.hidden = true; return; }
   const select = document.getElementById("searchProvider");
   const input  = document.getElementById("searchInput");
-
   select.innerHTML = names.map(n => `<option value="${n}">${n}</option>`).join("");
   const stored = localStorage.getItem(PROVIDER_STORE);
   if (stored && providers[stored]) select.value = stored;
   else if (providers[searchCfg.default]) select.value = searchCfg.default;
   else select.value = names[0];
-
   select.addEventListener("change", () => localStorage.setItem(PROVIDER_STORE, select.value));
   form.addEventListener("submit", e => {
     e.preventDefault();
