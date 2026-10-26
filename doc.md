@@ -1,18 +1,18 @@
-## re: panel — Custom Fonts
+## re: panel — User Profiles & Submenus
 
-The `re:` panel now supports full typographic customization. You can upload custom fonts (`.woff`, `.woff2`, `.ttf`, `.otf`) for specific elements on the page, bypassing system defaults. 
+This update brings actual personalization to the homepage (while still keeping the `re:` panel loaded with aesthetic slop). 
 
-Because this is aesthetic slop, we mapped every text class to its own slot:
-- **Bookmark Titles**
-- **Tooltip / Descriptions**
-- **Group Headings**
-- **Search Bar Input**
-- **Search Dropdown**
-- **re: Menu Panel**
-- **System UI** (Load buttons, empty state text)
+## What's New
 
-The files are loaded natively via the `FontFace` API, injected into the DOM, and persisted across reloads using `localStorage`. You can freely mix and match fonts (e.g., a chaotic display font for group headings, a clean sans for the search bar, and a serif for tooltips).
+**User Profile & Timezone Greeting**
+- Added a new `user` block to the JSON config. If provided, a sleek pill appears in the top-right corner showing your name, live local time, and timezone.
+- A dynamic greeting now appears above the search bar. It picks randomly from a pool of greetings based on the time of day (morning, afternoon, evening, night). There is a 50% chance it will append your name to the greeting (e.g., *"Good evening, Saddo."*).
 
-### Caveats
-- Fonts are saved as base64 strings in your browser's `localStorage`. A standard `.woff2` file is small enough, but if you upload a 15MB `.ttf` file, it might exceed the 5MB `localStorage` quota. If that happens, it works for the current session but won't survive a refresh (a popup will warn you).
-- This is purely cosmetic. Default system fonts are restored the moment you click the "X" next to the upload button.
+**Font Menu Sub-menu**
+- The font customization list inside the `re:` panel was getting too long. It has been moved into its own sub-menu. Clicking **"Customize Fonts"** now slides to a dedicated view with a "Back" button, keeping the main `re:` menu clean.
+
+**JSON Export Compatible**
+- If you hit "Load bookmarks" to export your config, the new `user` block is automatically included so you never lose your profile.
+
+## Known Caveats
+- Timezones require a valid IANA timezone string (e.g., `"Europe/Rome"`, `"America/New_York"`). If omitted, it defaults to UTC.
